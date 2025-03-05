@@ -18,6 +18,7 @@ Here's a basic example of how to use the library:
 import aim2numpy
 
 mynumpy = aim2numpy.extract("myaimfile.aim")
+header_info = aim2numpy.get_header_info("myaimfile.aim")
 ```
 
 ## AIM File Format
@@ -27,8 +28,10 @@ The AIM file format is used by Scanco Medical for storing CT scan data. These fi
 ## Features
 
 - **Easy Conversion**: Convert AIM files to numpy arrays with a single function call.
+- **Header Information**: Extract metadata and header information from AIM files.
 - **Compatibility**: Works with CT scan data from Scanco.
 - **Extensible**: Easily integrate with other Python libraries for further data processing and analysis.
+
 
 ## Example
 
@@ -43,6 +46,12 @@ ct_scan_data = aim2numpy.extract("myaimfile.aim")
 plt.imshow(ct_scan_data[:, :, ct_scan_data.shape[2] // 2], cmap='gray')
 plt.title('CT Scan Slice')
 plt.show()
+
+# Print header information
+header_info = aim2numpy.get_header_info("myaimfile.aim")
+print(f"Dimensions: {header_info['dimensions']}")
+print(f"Element size: {header_info['element_size']} mm")
+print(f"Processing log: {header_info['processing_log']}")
 ```
 
 ## Requirements
@@ -76,7 +85,3 @@ Contributions are welcome! Please open an issue or submit a pull request on GitH
 ## License
 
 This project is licensed under the MIT License. See the `LICENSE` file for details.
-
-## Contact
-
-For any questions or inquiries, please contact your.email@example.com.

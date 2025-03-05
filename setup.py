@@ -8,12 +8,12 @@ def read_requirements():
 
 setup(
     name='aim2numpy',
-    version='0.1',
+    version='0.2.1',
     packages=find_packages(),
     install_requires=read_requirements(),
     author='Alejandro Gutierrez',
     author_email='alejandro.gutierrez@ucalgary.ca',
-    description='A library to convert AIM image files to numpy arrays',
+    description='A library to convert Scanco AIM image files to numpy arrays and extract header information',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     url='https://github.com/Alexhal9000/aim2numpy', 
