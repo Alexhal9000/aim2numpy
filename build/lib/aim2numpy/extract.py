@@ -19,7 +19,7 @@ class AimFile:
         with open(self.filename, 'rb') as f:
             self.read_block_list(f)
             self.read_header(f)
-            self.read_processing_log(f)            
+            self.read_processing_log(f)
 
     def read_block_list(self, f):
         # Read in pre-header
@@ -89,18 +89,18 @@ class AimFile:
             self.suppos = fd[15:18]
             self.subdim = fd[18:21]
             self.testoff = fd[21:24]
-            
-            # Extract element size using VMS conversion
-            element_size_x = self.vms_to_native(header_data[108:112])
-            element_size_y = self.vms_to_native(header_data[112:116])
-            element_size_z = self.vms_to_native(header_data[116:120])
-            self.element_size = np.array([element_size_x, element_size_y, element_size_z])
-            
+            self.element_size = np.array(fd[27:30]) / 1.E6
             self.assoc_id = fd[27]
             self.assoc_nr = fd[28]
             self.assoc_size = fd[29]
             self.assoc_type = fd[30]
             self.byte_offset = self.block_list[2]['offset']
+
+            #print("Header Info:")
+            #print(f"Position: {self.position}")
+            #print(f"Dimensions: {self.dimensions}")
+            #print(f"Element Size: {self.element_size}")
+            #print(f"AIM Type: {self.aim_type}")
 
         # Additional conditions for other header types (e.g., Version 30, 20, 11, 10)
 
@@ -177,30 +177,6 @@ class AimFile:
         #print(f"Read data shape (before reshape): {data.shape}")  # Debugging line
         return data.reshape(self.dimensions[::-1])
 
-    def vms_to_native(self, float_bytes):
-        """
-        Convert VMS floating-point format to native floating-point format.
-        
-        Parameters:
-        float_bytes (bytes): 4 bytes representing a VMS float
-        
-        Returns:
-        float: The converted native float value
-        """
-        # Swap byte pairs as in the C++ code
-        swapped_bytes = bytes([
-            float_bytes[2],  # byte 0 becomes byte 2
-            float_bytes[3],  # byte 1 becomes byte 3
-            float_bytes[0],  # byte 2 becomes byte 0
-            float_bytes[1]   # byte 3 becomes byte 1
-        ])
-        
-        # Convert the swapped bytes to a float
-        value = struct.unpack('<f', swapped_bytes)[0]
-        
-        # Divide by 4.0 as in the C++ code
-        return value / 4.0
-
 
 def extract(filename):
     """
@@ -216,7 +192,6 @@ def extract(filename):
     aim_file.read_image_info()
     image_data = aim_file.read_image_data(np.int16)  # Change dtype as needed
     #print(f"Image data shape (after reshape): {image_data.shape}")
-
     return image_data
     
 
