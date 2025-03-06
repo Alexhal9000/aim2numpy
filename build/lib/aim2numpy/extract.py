@@ -218,7 +218,41 @@ def extract(filename):
     #print(f"Image data shape (after reshape): {image_data.shape}")
 
     return image_data
-    
+
+def get_header_info(filename):
+    """
+    Get header information from an AIM file.
+
+    Parameters:
+    filename (str): The path to the AIM file.
+
+    Returns:
+    dict: A dictionary containing the header information.
+    """
+
+    aim_file = AimFile(filename)
+    aim_file.read_image_info()
+
+    return {
+        "version": aim_file.version,
+        "id": aim_file.id,
+        "reference": aim_file.reference,
+        "aim_type": aim_file.aim_type,
+        "position": aim_file.position,
+        "dimensions": aim_file.dimensions,
+        "offset": aim_file.offset,
+        "supdim": aim_file.supdim,
+        "suppos": aim_file.suppos,
+        "subdim": aim_file.subdim,
+        "testoff": aim_file.testoff,
+        "element_size": aim_file.element_size,
+        "assoc_id": aim_file.assoc_id,
+        "assoc_nr": aim_file.assoc_nr,
+        "assoc_size": aim_file.assoc_size,
+        "assoc_type": aim_file.assoc_type,
+        "byte_offset": aim_file.byte_offset,
+        "processing_log": aim_file.processing_log        
+    }
 
 
     """

@@ -8,7 +8,7 @@ def read_requirements():
 
 setup(
     name='aim2numpy',
-    version='0.2.1',
+    version='0.2.2',
     packages=find_packages(),
     install_requires=read_requirements(),
     author='Alejandro Gutierrez',
