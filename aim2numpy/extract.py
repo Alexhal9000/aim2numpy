@@ -25,13 +25,20 @@ class AimFile:
         # Read in pre-header
         buffer = f.read(24)
 
-        # Check if the first 2 bytes = version030_string
+        # Check if the first bytes match known version strings
         version030_string = b'Version030'
+        aimdata_v030_string = b'AIMDATA_V030'
         file_64bit_flag = False
         head_mb_size = 0
         memory_offset = 0
 
         if buffer[:len(version030_string)] == version030_string:
+            # Original Version030 format
+            file_64bit_flag = True
+            head_mb_size = struct.unpack('<Q', buffer[16:24])[0]
+            memory_offset = 16
+        elif buffer[:len(aimdata_v030_string)] == aimdata_v030_string:
+            # New AIMDATA_V030 format from newer Scanco machines
             file_64bit_flag = True
             head_mb_size = struct.unpack('<Q', buffer[16:24])[0]
             memory_offset = 16
@@ -90,19 +97,124 @@ class AimFile:
             self.subdim = fd[18:21]
             self.testoff = fd[21:24]
             
-            # Extract element size using VMS conversion
-            element_size_x = self.vms_to_native(header_data[108:112])
-            element_size_y = self.vms_to_native(header_data[112:116])
-            element_size_z = self.vms_to_native(header_data[116:120])
-            self.element_size = np.array([element_size_x, element_size_y, element_size_z])
+            # Extract element size using VMS conversion (CRITICAL: no defaults allowed)
+            # VMS conversion for old format already gives values in mm
+            try:
+                element_size_x = self.vms_to_native(header_data[108:112])
+                element_size_y = self.vms_to_native(header_data[112:116])
+                element_size_z = self.vms_to_native(header_data[116:120])
+                
+                # VMS extracted values are already in mm (e.g., 0.035 mm)
+                self.element_size = np.array([element_size_x, element_size_y, element_size_z])
+                
+                # Informational output
+                print(f"Extracted voxel spacing (VMS): [{element_size_x:.6f}, {element_size_y:.6f}, {element_size_z:.6f}] mm")
+                
+            except Exception as e:
+                raise ValueError(
+                    f"Cannot extract voxel spacing from AIMFILE_VERSION_140 header using VMS conversion. "
+                    f"This is critical for medical imaging accuracy - no defaults will be used. "
+                    f"Original error: {str(e)}"
+                )
             
             self.assoc_id = fd[27]
             self.assoc_nr = fd[28]
             self.assoc_size = fd[29]
             self.assoc_type = fd[30]
             self.byte_offset = self.block_list[2]['offset']
+            
+        elif block_size == 224:
+            # New 224-byte header format from newer Scanco machines (AIMDATA_V030)
+            f.seek(block_offset)
+            header_data = f.read(224)
+            
+            self.version = 'AIMFILE_VERSION_224'
+            
+            # Parse the new header format based on observed structure
+            # Note: This parsing is based on analysis of the new file format
+            self.aim_type = struct.unpack('<I', header_data[0:4])[0]  # 24 in our case
+            self.id = self.aim_type  # Use aim_type as id for now
+            self.reference = 0  # Default value
+            
+            # Map the numeric aim_type to string representation
+            if self.aim_type == 24:
+                self.aim_type = 'AIMFILE_TYPE_D1Tshort_V2'  # New variant of short data
+            
+            # Extract dimensions from the correct offsets found by brute force search
+            dim_x = struct.unpack('<I', header_data[40:44])[0]  # 1155 at offset 40
+            dim_y = struct.unpack('<I', header_data[48:52])[0]  # 1430 at offset 48
+            dim_z = struct.unpack('<I', header_data[56:60])[0]  # 2057 at offset 56
+            
+            self.dimensions = [dim_x, dim_y, dim_z]
+            self.position = [0, 0, 0]  # Default values
+            self.offset = [0, 0, 0]    # Default values
+            
+            # Element size - extract from header metadata (CRITICAL: no defaults allowed)
+            # In medical imaging, incorrect voxel spacing leads to wrong measurements
+            self.element_size = None  # Initialize as None to detect failures
+            
+            # Method 1: Try raw interpretation for new format
+            try:
+                # Read raw values from the header at known offsets
+                raw_x = struct.unpack('<I', header_data[184:188])[0]
+                raw_y = struct.unpack('<I', header_data[192:196])[0]
+                raw_z = struct.unpack('<I', header_data[200:204])[0]
+                
+                # In the new format, these values represent voxel size in micrometers
+                # For example: 5000 → 5.0 μm → 0.005 mm
+                element_size_x_um = raw_x / 1000.0  # Convert to micrometers
+                element_size_y_um = raw_y / 1000.0
+                element_size_z_um = raw_z / 1000.0
+                
+                # Convert to mm for consistent API (both old and new formats return mm)
+                element_size_x = element_size_x_um / 1000.0  # Convert μm to mm
+                element_size_y = element_size_y_um / 1000.0
+                element_size_z = element_size_z_um / 1000.0
+                
+                self.element_size = np.array([element_size_x, element_size_y, element_size_z])
+                
+                # Informational output
+                print(f"Extracted voxel spacing: [{element_size_x_um:.6f}, {element_size_y_um:.6f}, {element_size_z_um:.6f}] μm")
+                print(f"Stored as: [{element_size_x:.9f}, {element_size_y:.9f}, {element_size_z:.9f}] mm")
+                
+            except:
+                pass
+            
+
+            
+            # CRITICAL ERROR: If we cannot extract voxel size, fail immediately
+            if self.element_size is None:
+                raise ValueError(
+                    f"Cannot extract voxel spacing from AIMFILE_VERSION_224 header. "
+                    f"Raw values at offsets 184,192,200: "
+                    f"{struct.unpack('<I', header_data[184:188])[0]}, "
+                    f"{struct.unpack('<I', header_data[192:196])[0]}, "
+                    f"{struct.unpack('<I', header_data[200:204])[0]}. "
+                    f"This is critical for medical imaging accuracy - no defaults will be used."
+                )
+            
+            # Other fields with default values
+            self.supdim = self.dimensions
+            self.suppos = [0, 0, 0]
+            self.subdim = [0, 0, 0]
+            self.testoff = [0, 0, 0]
+            self.assoc_id = 0
+            self.assoc_nr = 0
+            self.assoc_size = 0
+            self.assoc_type = 0
+            self.byte_offset = self.block_list[2]['offset'] if len(self.block_list) > 2 else 0
+
+        else:
+            # CRITICAL ERROR: Unsupported header format
+            raise ValueError(
+                f"Unsupported AIM header format with size {block_size} bytes. "
+                f"This library only supports header sizes 140 (AIMFILE_VERSION_140) and "
+                f"224 (AIMFILE_VERSION_224) bytes. No assumptions will be made about "
+                f"unknown formats for medical imaging safety."
+            )
 
         # Additional conditions for other header types (e.g., Version 30, 20, 11, 10)
+        # NOTE: These would need explicit implementation - no defaults allowed
 
         self.buffer_type = self.get_transfer_buffer_type(self.aim_type)
 
@@ -111,16 +223,20 @@ class AimFile:
             f.seek(self.block_list[1]['offset'])
             buffer = f.read(self.block_list[1]['size'])
             self.processing_log = buffer.decode('utf-8')
+        else:
+            self.processing_log = ""
+    
+
 
     def get_transfer_buffer_type(self, storage_type):
         if storage_type in ['AIMFILE_TYPE_D1Tchar', 'AIMFILE_TYPE_D1TbinCmp', 'AIMFILE_TYPE_D1TcharCmp', 'AIMFILE_TYPE_D3Tbit8']:
             return 'AIMFILE_TYPE_CHAR'
-        elif storage_type == 'AIMFILE_TYPE_D1Tshort':
+        elif storage_type in ['AIMFILE_TYPE_D1Tshort', 'AIMFILE_TYPE_D1Tshort_V2']:
             return 'AIMFILE_TYPE_SHORT'
         elif storage_type == 'AIMFILE_TYPE_D1Tfloat':
             return 'AIMFILE_TYPE_FLOAT'
         else:
-            raise ValueError("Unsupported AIM data type.")
+            raise ValueError(f"Unsupported AIM data type: {storage_type}")
 
     def read_any_data(self, buffer_number, dtype):
         with open(self.filename, 'rb') as f:
@@ -153,7 +269,7 @@ class AimFile:
             pass
         elif self.aim_type == 'AIMFILE_TYPE_D1Tchar':
             return np.frombuffer(buffer, dtype=np.uint8)
-        elif self.aim_type == 'AIMFILE_TYPE_D1Tshort':
+        elif self.aim_type in ['AIMFILE_TYPE_D1Tshort', 'AIMFILE_TYPE_D1Tshort_V2']:
             return np.frombuffer(buffer, dtype=np.int16)
         elif self.aim_type == 'AIMFILE_TYPE_D1Tfloat':
             return np.frombuffer(buffer, dtype=np.float32)
