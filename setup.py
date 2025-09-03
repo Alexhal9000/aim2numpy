@@ -1,16 +1,14 @@
 # setup.py
 from setuptools import setup, find_packages
 
-# Function to read the requirements.txt file
-def read_requirements():
-    with open('requirements.txt') as f:
-        return f.read().splitlines()
-
 setup(
     name='aim2numpy',
-    version='0.2.2',
+    version='0.3.1',
     packages=find_packages(),
-    install_requires=read_requirements(),
+    install_requires=[
+        'numpy',
+        'matplotlib'
+    ],
     author='Alejandro Gutierrez',
     author_email='alejandro.gutierrez@ucalgary.ca',
     description='A library to convert Scanco AIM image files to numpy arrays and extract header information',
