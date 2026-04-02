@@ -2,6 +2,8 @@
 
 `aim2numpy` is a Python library designed to convert AIM files, specifically CT scan data from Scanco, into numpy arrays.
 
+[![DOI](https://zenodo.org/badge/835962726.svg)](https://doi.org/10.5281/zenodo.19340878)
+
 ## Installation
 
 You can install the library using pip:
